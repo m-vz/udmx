@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use error::UDmxError;
-use log::{Level, debug, info, log_enabled, warn};
+use log::{Level, debug, info, log_enabled, trace, warn};
 use rusb::{Context, DeviceHandle, UsbContext};
 
 pub mod error;
@@ -73,5 +75,56 @@ impl UDmx {
         }
 
         Err(UDmxError::DeviceNotFound)
+    }
+
+    pub fn set_channel(&self, channel: u8, value: u8) -> Result<(), UDmxError> {
+        trace!("Setting channel {} to value {}", channel, value);
+
+        match self.handle.write_control(
+            rusb::request_type(
+                rusb::Direction::Out,
+                rusb::RequestType::Vendor,
+                rusb::Recipient::Device,
+            ),
+            Command::SetSingleChannel.into(),
+            value as u16,
+            channel as u16,
+            &[],
+            Duration::from_millis(5000),
+        ) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    pub fn set_channels(&self, channel: u8, values: &[u8]) -> Result<(), UDmxError> {
+        if values.is_empty() {
+            return Ok(());
+        }
+
+        trace!(
+            "Setting {} channels starting at channel {} to values {:?}",
+            values.len(),
+            channel,
+            values
+        );
+
+        match self.handle.write_control(
+            rusb::request_type(
+                rusb::Direction::Out,
+                rusb::RequestType::Vendor,
+                rusb::Recipient::Device,
+            ),
+            Command::SetChannelRange.into(),
+            values.len() as u16,
+            channel as u16,
+            values,
+            Duration::from_millis(5000),
+        ) {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(err) => Err(UDmxError::UsbError(err)),
+        }
     }
 }
