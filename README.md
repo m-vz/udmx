@@ -23,4 +23,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Examples
 
-- `rgb_fixture.rs`: Demonstrates controlling an RGB DMX fixture with various animations
+- `rgb_fixture.rs`: Demonstrates controlling an RGB DMX fixture
+- `moving_head_fixture.rs`: Demonstrates controlling a moving head light fixture
