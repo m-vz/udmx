@@ -1,8 +1,11 @@
 [package]
 name = "udmx"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 description = "USB DMX interface library for Anyma uDMX."
+categories = ["hardware-support", "multimedia"]
+keywords = ["dmx", "udmx", "driver"]
+repository = "https://github.com/m-vz/udmx"
 authors = ["milan <milan@milan.wtf>"]
 license = "MIT"
 
@@ -14,3 +17,10 @@ log = "0.4"
 [dev-dependencies]
 pretty_env_logger = "0.5.0"
 ctrlc = "3.4.7"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+multiple_crate_versions = "allow"

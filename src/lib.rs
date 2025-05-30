@@ -7,7 +7,6 @@ use rusb::{Context, DeviceHandle, UsbContext};
 
 mod command;
 pub mod error;
-pub mod fixture;
 
 const USBDEV_SHARED_VENDOR: u16 = 0x16C0; // VOTI
 const USBDEV_SHARED_PRODUCT: u16 = 0x05DC; // uDMX product ID
@@ -18,18 +17,29 @@ pub struct UDmx {
 }
 
 impl UDmx {
+    /// Creates a new uDMX controller interface.
+    ///
+    /// This function finds and opens a connection to a uDMX device using the default USB context.
+    ///
+    /// # Returns
+    ///
+    /// A new [`UDmx`] instance with an open connection to the device.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if it failed to create a USB context or if no uDMX device could be found or
+    /// communication with the device failed.
     pub fn new() -> Result<Self, UDmxError> {
         let context = Context::new().map_err(UDmxError::UsbError)?;
 
-        Ok(UDmx {
+        Ok(Self {
             handle: Self::find_device(&context)?,
         })
     }
 
     fn find_device(context: &Context) -> Result<DeviceHandle<Context>, UDmxError> {
         debug!(
-            "Searching for uDMX device (VID: 0x{:04x}, PID: 0x{:04x})...",
-            USBDEV_SHARED_VENDOR, USBDEV_SHARED_PRODUCT
+            "Searching for uDMX device (VID: 0x{USBDEV_SHARED_VENDOR:04x}, PID: 0x{USBDEV_SHARED_PRODUCT:04x})...",
         );
 
         for device in context.devices().map_err(UDmxError::UsbError)?.iter() {
@@ -41,7 +51,7 @@ impl UDmx {
                 let handle = match device.open() {
                     Ok(handle) => handle,
                     Err(err) => {
-                        debug!("Failed to open device: {:?}", err);
+                        debug!("Failed to open device: {err:?}");
                         continue;
                     }
                 };
@@ -65,32 +75,60 @@ impl UDmx {
         Err(UDmxError::DeviceNotFound)
     }
 
-    pub fn set_channel(&self, channel: u8, value: u8) -> Result<(), UDmxError> {
-        trace!("Setting channel {} to value {}", channel, value);
+    /// Set a single channel to a value.
+    ///
+    /// # Arguments
+    ///
+    /// * `channel` - The channel number to set.
+    /// * `value` - The value to set the channel to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if communication with the device fails.
+    pub fn set_channel(&self, channel: u16, value: u8) -> Result<(), UDmxError> {
+        trace!("Setting channel {channel} to value {value}");
 
-        self.send_command(Command::SetSingleChannel, value, channel, None)
+        self.send_command(Command::SetSingleChannel, value.into(), channel, None)
     }
 
-    pub fn set_channels(&self, channel: u8, values: &[u8]) -> Result<(), UDmxError> {
+    /// Set a range of channels to a number of values.
+    ///
+    /// The length of the `values` determines the number of channels to set.
+    ///
+    /// # Arguments
+    ///
+    /// * `starting_channel` - The starting channel number.
+    /// * `values` - The values to set the channels to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if communication with the device failed.
+    pub fn set_channels(&self, starting_channel: u16, values: &[u8]) -> Result<(), UDmxError> {
+        // do nothing if no values are provided
         if values.is_empty() {
             return Ok(());
         }
 
         trace!(
-            "Setting {} channels starting at channel {} to values {:?}",
-            values.len(),
-            channel,
-            values
+            "Setting {} channels starting at channel {starting_channel} to values {values:?}",
+            values.len()
         );
 
         self.send_command(
             Command::SetChannelRange,
-            values.len() as u8,
-            channel,
+            values.len() as u16,
+            starting_channel,
             Some(values),
         )
     }
 
+    /// Start the uDMX bootloader.
+    ///
+    /// More information about the firmware update process can be found at <https://www.anyma.ch/research/udmx>.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if communication with the device failed.
     pub fn start_bootloader(&self) -> Result<(), UDmxError> {
         info!("Starting bootloader");
 
@@ -100,8 +138,8 @@ impl UDmx {
     fn send_command(
         &self,
         command: Command,
-        value: u8,
-        channel: u8,
+        value: u16,
+        channel: u16,
         buffer: Option<&[u8]>,
     ) -> Result<(), UDmxError> {
         match self.handle.write_control(
@@ -111,8 +149,8 @@ impl UDmx {
                 rusb::Recipient::Device,
             ),
             command.into(),
-            value as u16,
-            channel as u16,
+            value,
+            channel,
             buffer.unwrap_or(&[]),
             USB_TIMEOUT,
         ) {
