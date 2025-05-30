@@ -1,29 +1,17 @@
 use std::time::Duration;
 
+use command::Command;
 use error::UDmxError;
 use log::{Level, debug, info, log_enabled, trace, warn};
 use rusb::{Context, DeviceHandle, UsbContext};
 
+mod command;
 pub mod error;
 pub mod fixture;
 
 const USBDEV_SHARED_VENDOR: u16 = 0x16C0; // VOTI
 const USBDEV_SHARED_PRODUCT: u16 = 0x05DC; // uDMX product ID
-
-// Documented in https://github.com/mirdej/udmx/blob/master/common/uDMX_cmds.h
-enum Command {
-    SetSingleChannel,
-    SetChannelRange,
-}
-
-impl From<Command> for u8 {
-    fn from(cmd: Command) -> Self {
-        match cmd {
-            Command::SetSingleChannel => 1,
-            Command::SetChannelRange => 2,
-        }
-    }
-}
+const USB_TIMEOUT: Duration = Duration::from_millis(5000);
 
 pub struct UDmx {
     handle: DeviceHandle<Context>,
@@ -80,21 +68,7 @@ impl UDmx {
     pub fn set_channel(&self, channel: u8, value: u8) -> Result<(), UDmxError> {
         trace!("Setting channel {} to value {}", channel, value);
 
-        match self.handle.write_control(
-            rusb::request_type(
-                rusb::Direction::Out,
-                rusb::RequestType::Vendor,
-                rusb::Recipient::Device,
-            ),
-            Command::SetSingleChannel.into(),
-            value as u16,
-            channel as u16,
-            &[],
-            Duration::from_millis(5000),
-        ) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err.into()),
-        }
+        self.send_command(Command::SetSingleChannel, value, channel, None)
     }
 
     pub fn set_channels(&self, channel: u8, values: &[u8]) -> Result<(), UDmxError> {
@@ -109,22 +83,41 @@ impl UDmx {
             values
         );
 
+        self.send_command(
+            Command::SetChannelRange,
+            values.len() as u8,
+            channel,
+            Some(values),
+        )
+    }
+
+    pub fn start_bootloader(&self) -> Result<(), UDmxError> {
+        info!("Starting bootloader");
+
+        self.send_command(Command::StartBootloader, 0, 0, None)
+    }
+
+    fn send_command(
+        &self,
+        command: Command,
+        value: u8,
+        channel: u8,
+        buffer: Option<&[u8]>,
+    ) -> Result<(), UDmxError> {
         match self.handle.write_control(
             rusb::request_type(
                 rusb::Direction::Out,
                 rusb::RequestType::Vendor,
                 rusb::Recipient::Device,
             ),
-            Command::SetChannelRange.into(),
-            values.len() as u16,
+            command.into(),
+            value as u16,
             channel as u16,
-            values,
-            Duration::from_millis(5000),
+            buffer.unwrap_or(&[]),
+            USB_TIMEOUT,
         ) {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(err) => Err(UDmxError::UsbError(err)),
+            Ok(_) => Ok(()),
+            Err(err) => Err(err.into()),
         }
     }
 }
