@@ -11,11 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dmx = UDmx::new()?;
 
     // Set a single channel
-    dmx.set_single_channel(0, 255)?;
+    dmx.set_channel(0, 255)?;
 
     // Set multiple channels at once (starting at the index given)
     let values = [255, 128, 64, 32];
-    dmx.set_channel_range(3, &values)?;
+    dmx.set_channels(3, &values)?;
 
     Ok(())
 }
@@ -23,4 +23,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Examples
 
-- `demo.rs`: Demonstrates controlling an RGB DMX fixture with various animations
+- `rgb_fixture.rs`: Demonstrates controlling an RGB DMX fixture with various animations
