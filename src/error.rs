@@ -6,4 +6,6 @@ pub enum UDmxError {
     UsbError(#[from] rusb::Error),
     #[error("Device not found")]
     DeviceNotFound,
+    #[error("Channel out of range: {0}")]
+    ChannelOutOfRange(u64),
 }

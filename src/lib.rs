@@ -10,6 +10,7 @@ pub mod error;
 
 const USBDEV_SHARED_VENDOR: u16 = 0x16C0; // VOTI
 const USBDEV_SHARED_PRODUCT: u16 = 0x05DC; // uDMX product ID
+const MAX_CHANNELS: u16 = 512;
 const USB_TIMEOUT: Duration = Duration::from_millis(5000);
 
 pub struct UDmx {
@@ -84,8 +85,13 @@ impl UDmx {
     ///
     /// # Errors
     ///
-    /// Returns an error if communication with the device fails.
+    /// Returns an error if the channel is outside the valid range or communication with the device
+    /// failed.
     pub fn set_channel(&self, channel: u16, value: u8) -> Result<(), UDmxError> {
+        if channel > MAX_CHANNELS {
+            return Err(UDmxError::ChannelOutOfRange(u64::from(channel)));
+        }
+
         trace!("Setting channel {channel} to value {value}");
 
         self.send_command(Command::SetSingleChannel, value.into(), channel, None)
@@ -102,21 +108,29 @@ impl UDmx {
     ///
     /// # Errors
     ///
-    /// Returns an error if communication with the device failed.
+    /// Returns an error if the values exceed the maximum channel range or communication with the
+    /// device failed.
     pub fn set_channels(&self, starting_channel: u16, values: &[u8]) -> Result<(), UDmxError> {
         // do nothing if no values are provided
         if values.is_empty() {
             return Ok(());
         }
+        // check whether the amount of channels does not exceed the maximum
+        let channel_count = u16::try_from(values.len())
+            .map_err(|_| UDmxError::ChannelOutOfRange(values.len() as u64))?;
+        if starting_channel + channel_count > MAX_CHANNELS {
+            return Err(UDmxError::ChannelOutOfRange(u64::from(
+                starting_channel + channel_count,
+            )));
+        }
 
         trace!(
-            "Setting {} channels starting at channel {starting_channel} to values {values:?}",
-            values.len()
+            "Setting {channel_count} channels starting at channel {starting_channel} to values {values:?}",
         );
 
         self.send_command(
             Command::SetChannelRange,
-            values.len() as u16,
+            channel_count,
             starting_channel,
             Some(values),
         )
