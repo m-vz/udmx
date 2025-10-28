@@ -1,9 +1,7 @@
 # uDMX Library
-
-A Rust library for controlling DMX fixtures via the Anyma uDMX USB interface.
+A Rust library for controlling DMX fixtures via the [Anyma uDMX USB interface](https://www.anyma.ch/research/udmx/).
 
 ## Usage
-
 ```rust
 use udmx::UDmx;
 
@@ -22,6 +20,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ## Examples
+The examples directory contains some fixture implementations for reference.
+
+> [!NOTE]
+> These examples likely won't work with your specific fixtures.
+> Consult the fixture's manual for the correct channel numbers and values.
 
 - `rgb_fixture.rs`: Demonstrates controlling an RGB DMX fixture
 - `moving_head_fixture.rs`: Demonstrates controlling a moving head light fixture
+- `fog_machine_fixture.rs`: Demonstrates controlling a fog machine
